@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Medical Records - Medical Records System{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold">Medical Records</h2>
+        <button onclick="showUploadModal()" class="bg-green-500 text-white px-4 py-2 rounded">
+            Upload Record
+        </button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Patient Records -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-xl font-bold mb-4">Records List</h3>
+            <div id="recordsList" class="space-y-4">
+                <!-- Dynamically populated -->
+            </div>
+        </div>
+
+        <!-- Prescriptions -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-xl font-bold mb-4">Prescriptions</h3>
+            <div id="prescriptionsList" class="space-y-4">
+                <!-- Dynamically populated -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Vulnerable file upload modal -->
+<div id="uploadModal" class="fixed inset-0 bg-black bg-opacity-50 hidden">
+    <div class="bg-white p-6 rounded-lg w-full max-w-md mx-auto mt-20">
+        <h3 class="text-xl font-bold mb-4">Upload Medical Record</h3>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-gray-700">Patient ID</label>
+                    <input type="text" id="patientId" class="w-full p-2 border rounded">
+                </div>
+                <div>
+                    <label class="block text-gray-700">File</label>
+                    <input type="file" id="medicalFile" class="w-full p-2 border rounded">
+                </div>
+                <div>
+                    <label class="block text-gray-700">Notes</label>
+                    <textarea id="fileNotes" class="w-full p-2 border rounded"></textarea>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-4">
+                <button type="button" onclick="hideUploadModal()" class="px-4 py-2 border rounded">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded">
+                    Upload
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Vulnerable file operations
+    $('#uploadForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData();
+        formData.append('patient_id', $('#patientId').val());
+        formData.append('file', $('#medicalFile')[0].files[0]);
+        formData.append('notes', $('#fileNotes').val());
+        
+        $.ajax({
+            url: '/api/records/upload',
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem('token')
+            },
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function() {
+                hideUploadModal();
+                loadRecords();
+            }
+        });
+    });
+
+    // Vulnerable direct file access
+    function downloadRecord(filename) {
+        window.location.href = `/api/records/download/${filename}`;
+    }
+
+    function loadRecords() {
+        $.ajax({
+            url: '/api/records/' + localStorage.getItem('currentPatientId') + '/files',
+            method: 'GET',
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem('token')
+            },
+            success: function(records) {
+                const recordsList = $('#recordsList');
+                recordsList.empty();
+                
+                records.forEach(function(record) {
+                    // Vulnerable HTML injection
+                    recordsList.append(`
+                        <div class="border p-4 rounded">
+                            <div class="flex justify-between items-center">
+                                <span>${record.filename}</span>
+                                <button onclick="downloadRecord('${record.filename}')"
+                                        class="text-blue-500 hover:text-blue-700">
+                                    Download
+                                </button>
+                            </div>
+                            <div class="text-sm text-gray-600">${record.upload_date}</div>
+                        </div>
+                    `);
+                });
+            }
+        });
+    }
+
+    function showUploadModal() {
+        $('#uploadModal').removeClass('hidden');
+    }
+
+    function hideUploadModal() {
+        $('#uploadModal').addClass('hidden');
+    }
+
+    // Load records on page load
+    loadRecords();
+</script>
+{% endblock %}

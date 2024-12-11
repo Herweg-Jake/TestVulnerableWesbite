@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Patients - Medical Records System{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold">Patients List</h2>
+        <button onclick="showAddPatientModal()" class="bg-green-500 text-white px-4 py-2 rounded">
+            Add Patient
+        </button>
+    </div>
+
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="overflow-x-auto">
+            <table class="w-full" id="patientsTable">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="p-3 text-left">Name</th>
+                        <th class="p-3 text-left">SSN</th>
+                        <th class="p-3 text-left">DOB</th>
+                        <th class="p-3 text-left">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Dynamically populated -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Vulnerable modal implementation -->
+<div id="patientModal" class="fixed inset-0 bg-black bg-opacity-50 hidden">
+    <div class="bg-white p-6 rounded-lg w-full max-w-md mx-auto mt-20">
+        <h3 class="text-xl font-bold mb-4">Patient Details</h3>
+        <form id="patientForm">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-gray-700">Name</label>
+                    <input type="text" id="patientName" class="w-full p-2 border rounded">
+                </div>
+                <div>
+                    <label class="block text-gray-700">SSN</label>
+                    <input type="text" id="patientSSN" class="w-full p-2 border rounded">
+                </div>
+                <div>
+                    <label class="block text-gray-700">DOB</label>
+                    <input type="date" id="patientDOB" class="w-full p-2 border rounded">
+                </div>
+                <div>
+                    <label class="block text-gray-700">Medical History</label>
+                    <textarea id="patientHistory" class="w-full p-2 border rounded"></textarea>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-4">
+                <button type="button" onclick="hidePatientModal()" class="px-4 py-2 border rounded">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded">
+                    Save
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Vulnerable data fetching
+    function loadPatients() {
+        $.ajax({
+            url: '/api/patients',
+            method: 'GET',
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem('token')
+            },
+            success: function(patients) {
+                const tbody = $('#patientsTable tbody');
+                tbody.empty();
+                
+                patients.forEach(function(patient) {
+                    // Vulnerable innerHTML usage
+                    tbody.append(`
+                        <tr>
+                            <td class="p-3">${patient.name}</td>
+                            <td class="p-3">${patient.ssn}</td>
+                            <td class="p-3">${patient.dob}</td>
+                            <td class="p-3">
+                                <button onclick="viewPatient(${patient.id})" 
+                                        class="text-blue-500 hover:text-blue-700">
+                                    View
+                                </button>
+                                <button onclick="deletePatient(${patient.id})"
+                                        class="text-red-500 hover:text-red-700 ml-2">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    `);
+                });
+            }
+        });
+    }
+
+    // Vulnerable patient data handling
+    $('#patientForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const data = {
+            name: $('#patientName').val(),
+            ssn: $('#patientSSN').val(),
+            dob: $('#patientDOB').val(),
+            medical_history: $('#patientHistory').val()
+        };
+        
+        $.ajax({
+            url: '/api/patients/create',
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem('token')
+            },
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function() {
+                hidePatientModal();
+                loadPatients();
+            }
+        });
+    });
+
+    function showAddPatientModal() {
+        $('#patientModal').removeClass('hidden');
+    }
+
+    function hidePatientModal() {
+        $('#patientModal').addClass('hidden');
+    }
+
+    // Load patients on page load
+    loadPatients();
+</script>
+{% endblock %}
