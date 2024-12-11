@@ -5,8 +5,8 @@ import time
 import json
 import subprocess
 import requests
-from datetime import datetime
-from flask import Flask, request, render_template, redirect, jsonify, session, send_file
+from datetime import datetime, timedelta
+from flask import Flask, request, render_template, redirect, jsonify, session, send_file, url_for, flash
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 
@@ -19,19 +19,76 @@ app = Flask(__name__)
 app.secret_key = 'medical_secret_key_123'  # Intentionally weak secret
 app.config['JWT_SECRET_KEY'] = 'jwt_medical_key_123'  # Intentionally weak JWT
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config.update(
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=1)
+)
+
 jwt = JWTManager(app)
 
 # Create necessary directories
 UPLOAD_FOLDER.mkdir(exist_ok=True)
+os.makedirs('logs', exist_ok=True)
 
-# Routes organized by functionality
-# 1. Authentication and User Management
+# Template context processor for utility functions
+@app.context_processor
+def utility_processor():
+    def now(format_string):
+        return datetime.now().strftime(format_string)
+    return dict(now=now)
+
+# Basic page routes
+@app.route('/')
+def index():
+    if not session.get('user_id'):
+        return redirect(url_for('login_page'))
+    return redirect(url_for('dashboard'))
+
+@app.route('/login')
+def login_page():
+    if session.get('user_id'):
+        return redirect(url_for('dashboard'))
+    return render_template('login.html')
+
+@app.route('/dashboard')
+def dashboard():
+    if not session.get('user_id'):
+        return redirect(url_for('login_page'))
+    return render_template('dashboard.html')
+
+@app.route('/patients')
+def patients_page():
+    if 'user_id' not in session:
+        return redirect(url_for('login_page'))
+    return render_template('patients.html')
+
+@app.route('/records')
+def records_page():
+    if 'user_id' not in session:
+        return redirect(url_for('login_page'))
+    return render_template('records.html')
+
+@app.route('/admin')
+def admin_page():
+    if not session.get('user_id') or session.get('role') != 'admin':
+        flash('Unauthorized access', 'error')
+        return redirect(url_for('dashboard'))
+    return render_template('admin.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('You have been logged out', 'success')
+    return redirect(url_for('login_page'))
+
+# Authentication and User Management API routes
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     username = request.json.get('username', '')
     password = request.json.get('password', '')
     
-    # Vulnerable SQL query
     conn = sqlite3.connect(str(DATABASE_PATH))
     c = conn.cursor()
     query = f"SELECT * FROM users WHERE username='{username}' AND password='{password}'"
@@ -39,16 +96,21 @@ def login():
     conn.close()
     
     if result:
-        # Create vulnerable JWT token
+        session['user_id'] = result[0]
+        session['username'] = result[1]
+        session['role'] = result[3]
+        
         token = create_access_token(
             identity=username,
             headers={'alg': 'none'}
         )
+        flash('Login successful', 'success')
         return jsonify({
             'token': token,
-            'role': result[3],  # Exposing role information
+            'role': result[3],
             'user_id': result[0]
         })
+    flash('Invalid credentials', 'error')
     return jsonify({'error': 'Invalid credentials'}), 401
 
 @app.route('/api/users/create', methods=['POST'])
@@ -244,32 +306,5 @@ def backup_database():
     except:
         return jsonify({'error': 'Backup failed'}), 500
 
-@app.route('/')
-def index():
-    return redirect('/login')
-
-@app.route('/login')
-def login_page():
-    return render_template('login.html')
-
-@app.route('/patients')
-def patients_page():
-    if 'user_id' not in session:
-        return redirect('/login')
-    return render_template('patients.html')
-
-@app.route('/records')
-def records_page():
-    if 'user_id' not in session:
-        return redirect('/login')
-    return render_template('records.html')
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect('/login')
-
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
-    
-    
