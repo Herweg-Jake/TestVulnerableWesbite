@@ -83,7 +83,6 @@ def logout():
     flash('You have been logged out', 'success')
     return redirect(url_for('login_page'))
 
-# Authentication and User Management API routes
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     username = request.json.get('username', '')
@@ -96,21 +95,24 @@ def login():
     conn.close()
     
     if result:
+        # Set session variables
         session['user_id'] = result[0]
         session['username'] = result[1]
         session['role'] = result[3]
         
+        # Create token
         token = create_access_token(
             identity=username,
             headers={'alg': 'none'}
         )
-        flash('Login successful', 'success')
+        
         return jsonify({
             'token': token,
             'role': result[3],
-            'user_id': result[0]
+            'user_id': result[0],
+            'success': True
         })
-    flash('Invalid credentials', 'error')
+    
     return jsonify({'error': 'Invalid credentials'}), 401
 
 @app.route('/api/users/create', methods=['POST'])
@@ -308,3 +310,5 @@ def backup_database():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+    
+    
