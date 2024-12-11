@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MedRecord System{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .flash-message {
+            animation: fadeOut 5s forwards;
+        }
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            70% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <nav class="bg-blue-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <a href="/" class="text-xl font-bold hover:text-blue-100">MedRecord System</a>
+            
+            <div id="nav-items" class="space-x-6">
+                {% if session.get('user_id') %}
+                    <a href="/dashboard" class="hover:text-blue-100">Dashboard</a>
+                    <a href="/patients" class="hover:text-blue-100">Patients</a>
+                    <a href="/records" class="hover:text-blue-100">Records</a>
+                    {% if session.get('role') == 'admin' %}
+                        <a href="/admin" class="hover:text-blue-100">Admin Panel</a>
+                    {% endif %}
+                    <span class="text-blue-200">|</span>
+                    <span class="text-blue-100">{{ session.get('username', '') }}</span>
+                    <a href="/logout" class="hover:text-blue-100">Logout</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 mt-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-message p-4 mb-4 rounded-lg {{ 'bg-red-100 text-red-700' if category == 'error' else 'bg-green-100 text-green-700' }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <main class="container mx-auto px-4 py-6">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="bg-gray-100 border-t mt-auto">
+        <div class="container mx-auto px-4 py-4 text-center text-gray-600">
+            <p>&copy; {{ now('%Y') }} MedRecord System. For testing purposes only.</p>
+        </div>
+    </footer>
+</body>
+</html>
