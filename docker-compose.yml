@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  medical-records:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./medical_files:/app/medical_files
+      - ./logs:/app/logs
+    environment:
+      - FLASK_ENV=development
+      - FLASK_APP=app.py
+    restart: unless-stopped
